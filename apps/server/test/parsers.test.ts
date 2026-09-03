@@ -43,4 +43,24 @@ describe("fixture-backed ESPN parsers", () => {
     expect(detail.picks.map((pick) => pick.overallPickNumber)).toEqual([1, 2, 3]);
     expect(detail.draftSlotByTeamId[4]).toBe(4);
   });
+
+  it("uses first-round placeholders for draft slots without counting them as picks", () => {
+    const detail = parseDraftDetail({
+      draftDetail: {
+        drafted: false,
+        inProgress: false,
+        picks: [
+          {
+            playerId: -1,
+            teamId: 5,
+            overallPickNumber: 4,
+            roundId: 1,
+            roundPickNumber: 4
+          }
+        ]
+      }
+    });
+    expect(detail.picks).toEqual([]);
+    expect(detail.draftSlotByTeamId[5]).toBe(4);
+  });
 });

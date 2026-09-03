@@ -13,6 +13,14 @@ const PickSchema = z
   })
   .passthrough();
 
+const DraftSlotSchema = z
+  .object({
+    teamId: z.number().int().positive(),
+    roundId: z.number().int().positive(),
+    roundPickNumber: z.number().int().positive()
+  })
+  .passthrough();
+
 const RootSchema = z
   .object({
     draftDetail: z
@@ -42,6 +50,14 @@ export function parseDraftDetail(input: unknown): ParsedDraftDetail {
   order.forEach((teamId, index) => {
     draftSlotByTeamId[teamId] = index + 1;
   });
+  // Some leagues omit pickOrder but include the scheduled first-round slots as
+  // playerId: -1 placeholders. Preserve only their team/slot assignment.
+  for (const raw of detail.picks ?? []) {
+    const slot = DraftSlotSchema.safeParse(raw);
+    if (slot.success && slot.data.roundId === 1) {
+      draftSlotByTeamId[slot.data.teamId] ??= slot.data.roundPickNumber;
+    }
+  }
 
   return {
     drafted: detail.drafted ?? false,
