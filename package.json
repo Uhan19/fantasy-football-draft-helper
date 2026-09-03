@@ -1,0 +1,27 @@
+{
+  "name": "fantasy-football-draft-helper",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Local-first, read-only ESPN fantasy football draft state for ChatGPT via MCP",
+  "type": "module",
+  "packageManager": "pnpm@9.2.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "pnpm --filter @war-room/shared build && pnpm --filter @war-room/server build && pnpm --filter @war-room/extension build",
+    "dev": "pnpm --filter @war-room/server dev",
+    "start": "pnpm --filter @war-room/server start",
+    "mcp": "pnpm --filter @war-room/server start",
+    "test": "pnpm --filter @war-room/server test",
+    "typecheck": "pnpm -r typecheck",
+    "probe:espn": "tsx scripts/probe-espn.ts",
+    "simulate:draft": "tsx scripts/simulate-draft.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "tsx": "^4.23.13",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.0"
+  }
+}

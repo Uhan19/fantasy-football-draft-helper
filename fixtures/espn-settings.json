@@ -1,0 +1,29 @@
+{
+  "id": 12345678,
+  "seasonId": 2026,
+  "name": "Fixture League",
+  "settings": {
+    "size": 4,
+    "draftSettings": {
+      "type": "SNAKE",
+      "rounds": 3
+    },
+    "rosterSettings": {
+      "lineupSlotCounts": {
+        "0": 1,
+        "2": 2,
+        "4": 2,
+        "6": 1,
+        "16": 1,
+        "17": 1,
+        "20": 4,
+        "23": 1
+      }
+    },
+    "scoringSettings": {
+      "scoringItems": [
+        { "statId": 53, "points": 0.5 }
+      ]
+    }
+  }
+}

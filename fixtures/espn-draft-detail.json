@@ -1,0 +1,12 @@
+{
+  "draftDetail": {
+    "drafted": false,
+    "inProgress": true,
+    "pickOrder": [1, 2, 3, 4],
+    "picks": [
+      { "playerId": 101, "teamId": 1, "overallPickNumber": 1, "roundId": 1, "roundPickNumber": 1 },
+      { "playerId": 102, "teamId": 2, "overallPickNumber": 2, "roundId": 1, "roundPickNumber": 2 },
+      { "playerId": 103, "teamId": 3, "overallPickNumber": 3, "roundId": 1, "roundPickNumber": 3 }
+    ]
+  }
+}

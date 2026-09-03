@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "ESPN Draft War Room",
+  "version": "1.0.0",
+  "description": "Read-only fallback observer for ESPN fantasy football draft rooms.",
+  "permissions": ["storage"],
+  "host_permissions": ["http://127.0.0.1:8787/*"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "ESPN Draft War Room",
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://fantasy.espn.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

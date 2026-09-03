@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>ESPN Draft War Room</title>
+    <link rel="stylesheet" href="popup.css">
+  </head>
+  <body>
+    <main>
+      <h1>ESPN Draft War Room</h1>
+      <dl>
+        <div><dt>Draft page detected</dt><dd id="page">○</dd></div>
+        <div><dt>Local server connected</dt><dd id="server">○</dd></div>
+        <div><dt>Draft observer active</dt><dd id="observer">○</dd></div>
+      </dl>
+      <p class="label">Last event</p>
+      <p id="last-event">No pick observed yet</p>
+      <form>
+        <label for="secret">Local ingest secret</label>
+        <input id="secret" type="password" autocomplete="off" required>
+        <button type="submit">Save for this browser session</button>
+      </form>
+    </main>
+    <script src="popup.js"></script>
+  </body>
+</html>

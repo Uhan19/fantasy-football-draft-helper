@@ -1,0 +1,14 @@
+{
+  "players": [
+    { "player": { "id": 101, "fullName": "Alpha Runner", "defaultPositionId": 2, "proTeamId": 8, "injuryStatus": "ACTIVE", "byeWeek": 8, "draftRanksByRankType": { "PPR": { "rank": 1 } }, "stats": [{ "statSourceId": 1, "scoringPeriodId": 0, "appliedTotal": 290.1 }] } },
+    { "player": { "id": 102, "fullName": "Bravo Receiver", "defaultPositionId": 3, "proTeamId": 9, "injuryStatus": "ACTIVE", "draftRanksByRankType": { "PPR": { "rank": 2 } } } },
+    { "player": { "id": 103, "fullName": "Charlie Runner", "defaultPositionId": 2, "proTeamId": 12, "draftRanksByRankType": { "PPR": { "rank": 3 } } } },
+    { "player": { "id": 104, "fullName": "Delta Receiver", "defaultPositionId": 3, "proTeamId": 21, "draftRanksByRankType": { "PPR": { "rank": 4 } } } },
+    { "player": { "id": 105, "fullName": "Echo Tight End", "defaultPositionId": 4, "proTeamId": 25, "draftRanksByRankType": { "PPR": { "rank": 5 } } } },
+    { "player": { "id": 106, "fullName": "Foxtrot Quarterback", "defaultPositionId": 1, "proTeamId": 2, "draftRanksByRankType": { "PPR": { "rank": 6 } } } },
+    { "player": { "id": 107, "fullName": "Golf Receiver", "defaultPositionId": 3, "proTeamId": 15, "draftRanksByRankType": { "PPR": { "rank": 7 } } } },
+    { "player": { "id": 108, "fullName": "Hotel Runner", "defaultPositionId": 2, "proTeamId": 33, "draftRanksByRankType": { "PPR": { "rank": 8 } } } },
+    { "player": { "id": 109, "fullName": "India Defense", "defaultPositionId": 16, "proTeamId": 26, "draftRanksByRankType": { "PPR": { "rank": 9 } } } },
+    { "player": { "id": 110, "fullName": "Juliet Kicker", "defaultPositionId": 5, "proTeamId": 17, "draftRanksByRankType": { "PPR": { "rank": 10 } } } }
+  ]
+}

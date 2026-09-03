@@ -1,0 +1,14 @@
+{
+  "members": [
+    { "id": "owner-1", "displayName": "Alex" },
+    { "id": "owner-2", "displayName": "Blair" },
+    { "id": "owner-3", "displayName": "Casey" },
+    { "id": "owner-4", "displayName": "Drew" }
+  ],
+  "teams": [
+    { "id": 1, "location": "North", "nickname": "Stars", "abbrev": "NST", "owners": ["owner-1"] },
+    { "id": 2, "location": "South", "nickname": "Runners", "abbrev": "SRN", "owners": ["owner-2"] },
+    { "id": 3, "location": "East", "nickname": "Owls", "abbrev": "EOW", "owners": ["owner-3"] },
+    { "id": 4, "location": "West", "nickname": "Wolves", "abbrev": "WWV", "owners": ["owner-4"] }
+  ]
+}
