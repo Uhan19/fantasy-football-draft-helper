@@ -33,7 +33,7 @@ export class EspnClient {
       throw new Error("ESPN_LEAGUE_ID must contain digits only");
     }
     this.#baseUrl = new URL(
-      `https://fantasy.espn.com/apis/v3/games/ffl/seasons/${options.season}/segments/0/leagues/${options.leagueId}`
+      `https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/${options.season}/segments/0/leagues/${options.leagueId}`
     );
     this.#cookie = buildEspnCookie({
       ...(options.espnS2 ? { espnS2: options.espnS2 } : {}),
@@ -46,7 +46,10 @@ export class EspnClient {
     if (!/^[A-Za-z0-9_]+$/.test(view)) throw new Error("Invalid ESPN view");
     const url = new URL(this.#baseUrl);
     url.searchParams.set("view", view);
-    const headers = new Headers({ Accept: "application/json" });
+    const headers = new Headers({
+      Accept: "application/json",
+      "User-Agent": "fantasy-football-draft-helper/1.0"
+    });
     if (this.#cookie) headers.set("Cookie", this.#cookie);
     if (fantasyFilter) headers.set("X-Fantasy-Filter", JSON.stringify(fantasyFilter));
 
@@ -59,13 +62,34 @@ export class EspnClient {
       );
     }
 
-    if (response.status === 401 || response.status === 403) throw new EspnAuthenticationError();
+    const contentType = response.headers.get("content-type") ?? "unknown content type";
+    const finalHost = response.url ? new URL(response.url).hostname : this.#baseUrl.hostname;
+    if (
+      response.status === 401 ||
+      response.status === 403 ||
+      (response.redirected && finalHost === "registerdisney.go.com")
+    ) {
+      throw new EspnAuthenticationError();
+    }
     if (!response.ok) throw new EspnResponseError(`ESPN returned HTTP ${response.status}`, response.status);
+
+    if (!contentType.toLocaleLowerCase().includes("json")) {
+      const redirectDetail = response.redirected
+        ? ` after redirecting to ${finalHost}`
+        : " without a redirect";
+      throw new EspnResponseError(
+        `ESPN view ${view} returned ${contentType} instead of JSON${redirectDetail}. Check ESPN_LEAGUE_ID, ESPN_SEASON, and private-league session cookies.`,
+        response.status
+      );
+    }
 
     try {
       return await response.json();
     } catch {
-      throw new EspnResponseError("ESPN returned malformed JSON", response.status);
+      throw new EspnResponseError(
+        `ESPN view ${view} returned malformed JSON (${contentType})`,
+        response.status
+      );
     }
   }
 

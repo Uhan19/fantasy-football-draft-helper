@@ -12,12 +12,25 @@ async function probe(): Promise<void> {
     ...(config.espnS2 ? { espnS2: config.espnS2 } : {}),
     ...(config.espnSwid ? { swid: config.espnSwid } : {})
   });
-  const [settingsRaw, teamsRaw, draftRaw, playersRaw] = await Promise.all([
-    client.getSettings(),
-    client.getTeams(),
-    client.getDraftDetail(),
-    client.getPlayerPool()
-  ]);
+  async function fetchView(name: string, request: () => Promise<unknown>): Promise<unknown | undefined> {
+    try {
+      const result = await request();
+      console.log(`${name}: YES`);
+      return result;
+    } catch (error) {
+      console.log(`${name}: NO — ${error instanceof Error ? error.message : "unknown error"}`);
+      return undefined;
+    }
+  }
+
+  const settingsRaw = await fetchView("mSettings reachable", () => client.getSettings());
+  const teamsRaw = await fetchView("mTeam reachable", () => client.getTeams());
+  const draftRaw = await fetchView("mDraftDetail reachable", () => client.getDraftDetail());
+  const playersRaw = await fetchView("kona_player_info reachable", () => client.getPlayerPool());
+  if (!settingsRaw || !teamsRaw || !draftRaw || !playersRaw) {
+    process.exitCode = 1;
+    return;
+  }
   const league = parseLeagueConfig(settingsRaw, {
     leagueId: config.leagueId,
     season: config.season
@@ -26,9 +39,9 @@ async function probe(): Promise<void> {
   const draft = parseDraftDetail(draftRaw);
   const players = parsePlayerPool(playersRaw);
 
+  console.log("");
   console.log("League reachable: YES");
   console.log(`Private authentication: ${config.espnS2 ? "VALID" : "NOT REQUIRED"}`);
-  console.log("mDraftDetail reachable: YES");
   console.log(
     `Draft status: ${draft.drafted && !draft.inProgress ? "COMPLETE" : draft.inProgress ? "IN_PROGRESS" : "PRE_DRAFT"}`
   );

@@ -14,7 +14,7 @@
     "start": "pnpm --filter @war-room/server start",
     "mcp": "pnpm --filter @war-room/server start",
     "test": "pnpm --filter @war-room/server test",
-    "typecheck": "pnpm -r typecheck",
+    "typecheck": "pnpm -r typecheck && tsc -p tsconfig.scripts.json --noEmit",
     "probe:espn": "tsx scripts/probe-espn.ts",
     "simulate:draft": "tsx scripts/simulate-draft.ts"
   },

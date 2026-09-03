@@ -32,6 +32,13 @@ describe("fixture-backed ESPN parsers", () => {
   it("skips malformed picks while preserving valid sequence", async () => {
     const raw = (await fixture("espn-draft-detail.json")) as { draftDetail: { picks: unknown[] } };
     raw.draftDetail.picks.push({ playerId: "bad" });
+    raw.draftDetail.picks.push({
+      playerId: -1,
+      teamId: 4,
+      overallPickNumber: 4,
+      roundId: 1,
+      roundPickNumber: 4
+    });
     const detail = parseDraftDetail(raw);
     expect(detail.picks.map((pick) => pick.overallPickNumber)).toEqual([1, 2, 3]);
     expect(detail.draftSlotByTeamId[4]).toBe(4);

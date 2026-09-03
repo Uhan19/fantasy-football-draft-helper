@@ -60,6 +60,8 @@ pnpm probe:espn
 This confirms the configured league, authentication, `mDraftDetail`, teams, and the player catalog without printing cookies. During a mock draft, watch whether pick counts change. If the browser observer sees a pick but the ESPN API does not catch up within about five seconds, state freshness reports that browser fallback is active.
 
 ESPN's fantasy API is unofficial and can change. Every ESPN-specific assumption is isolated under `apps/server/src/espn`.
+The adapter targets ESPN's current read host, `lm-api-reads.fantasy.espn.com`; the older
+`fantasy.espn.com` host now commonly redirects API requests to an HTML page.
 
 ## Start the local server and MCP
 

@@ -3,7 +3,9 @@ import type { ParsedDraftDetail, ParsedDraftPick } from "./types.js";
 
 const PickSchema = z
   .object({
-    playerId: z.number().int(),
+    // ESPN pre-populates future draft slots with playerId: -1. Only positive
+    // player IDs represent completed selections.
+    playerId: z.number().int().positive(),
     teamId: z.number().int().positive(),
     overallPickNumber: z.number().int().positive(),
     roundId: z.number().int().positive(),

@@ -1,6 +1,10 @@
-import "dotenv/config";
-import { resolve } from "node:path";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { config as loadDotenv } from "dotenv";
 import { z } from "zod";
+
+export const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
+loadDotenv({ path: resolve(projectRoot, ".env"), quiet: true });
 
 const optionalSecret = z.preprocess(
   (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
@@ -73,6 +77,6 @@ export function loadConfig(environment: NodeJS.ProcessEnv = process.env): AppCon
     ...(value.BROWSER_INGEST_SECRET
       ? { browserIngestSecret: value.BROWSER_INGEST_SECRET }
       : {}),
-    snapshotPath: resolve(value.SNAPSHOT_PATH)
+    snapshotPath: resolve(projectRoot, value.SNAPSHOT_PATH)
   };
 }
