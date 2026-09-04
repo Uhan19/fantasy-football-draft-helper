@@ -113,7 +113,8 @@ pnpm --filter @war-room/extension build
 3. Choose **Load unpacked** and select `apps/extension/dist`.
 4. Open only the ESPN Fantasy Football draft room for the configured league.
 5. Open the extension popup and enter the same `BROWSER_INGEST_SECRET` as `.env`.
-6. Confirm the popup shows the draft page and observer as active.
+6. Click **Save for this browser session** and confirm it reports **Saved and connected**.
+7. Confirm the popup shows the draft page, local server, and observer as active.
 
 The extension observes only already-rendered draft rows. It does not read ESPN cookies, inject UI, inspect unrelated sites, or submit picks. ESPN DOM selectors live in one file (`apps/extension/src/selectors.ts`) so markup changes are easy to repair.
 

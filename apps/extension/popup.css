@@ -11,3 +11,7 @@ dd { color: #4ade80; font-weight: 700; }
 label { display: block; }
 input { box-sizing: border-box; width: 100%; padding: 8px; background: #1f2937; color: white; border: 1px solid #4b5563; border-radius: 5px; }
 button { width: 100%; margin-top: 8px; padding: 8px; border: 0; border-radius: 5px; background: #2563eb; color: white; font-weight: 600; }
+button:disabled { cursor: wait; opacity: 0.7; }
+#save-status { min-height: 18px; margin: 8px 0 0; color: #9ca3af; font-size: 12px; }
+#save-status[data-state="success"] { color: #4ade80; }
+#save-status[data-state="error"] { color: #fca5a5; }

@@ -1,6 +1,14 @@
 const endpoint = "http://127.0.0.1:8787/internal/browser/picks";
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message?.type === "UPDATE_WAR_ROOM_STATUS") {
+    void chrome.storage.session
+      .set({ warRoomStatus: message.status })
+      .then(() => sendResponse({ ok: true }))
+      .catch(() => sendResponse({ ok: false, error: "Could not update extension status" }));
+    return true;
+  }
+
   if (message?.type !== "INGEST_PICKS") return false;
   void (async () => {
     const { browserIngestSecret } = await chrome.storage.session.get("browserIngestSecret");
