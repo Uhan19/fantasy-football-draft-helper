@@ -10,6 +10,13 @@ export interface ObservedPick {
   fantasyTeamName: string;
 }
 
+interface PickHistoryEntry {
+  playerName: string;
+  fantasyTeamName: string;
+  round: number;
+  pickInRound: number;
+}
+
 function text(element: Element | null): string {
   return element?.textContent?.replace(/\s+/g, " ").trim() ?? "";
 }
@@ -23,7 +30,60 @@ function pickNumber(row: Element): number | undefined {
   return match?.[1] ? Number(match[1]) : undefined;
 }
 
+export function parsePickHistoryText(value: string): PickHistoryEntry | undefined {
+  const normalized = value.replace(/\s+/g, " ").trim();
+  const match = normalized.match(
+    /^(.+?)\s+\/\s+\S+\s+(?:QB|RB|WR|TE|K|D\/ST)\s+R(\d+),\s*P(\d+)\s+-\s+(.+)$/i
+  );
+  if (!match?.[1] || !match[2] || !match[3] || !match[4]) return undefined;
+  return {
+    playerName: match[1].trim(),
+    round: Number(match[2]),
+    pickInRound: Number(match[3]),
+    fantasyTeamName: match[4].trim()
+  };
+}
+
+function semanticPickElements(root: ParentNode): Element[] {
+  const candidates = [...root.querySelectorAll("*")].filter((element) =>
+    Boolean(parsePickHistoryText(text(element)))
+  );
+  return candidates.filter((element) =>
+    ![...element.children].some((child) => Boolean(parsePickHistoryText(text(child))))
+  );
+}
+
+export function parsePickHistoryEntries(entries: readonly string[]): ObservedPick[] {
+  const parsed = entries
+    .map(parsePickHistoryText)
+    .filter((entry): entry is PickHistoryEntry => Boolean(entry));
+  if (parsed.length === 0) return [];
+
+  const teamCount = Math.max(...parsed.map((entry) => entry.pickInRound));
+  const seenLocations = new Set<string>();
+  const picks: ObservedPick[] = [];
+  for (const entry of parsed) {
+    const location = `${entry.round}:${entry.pickInRound}`;
+    if (seenLocations.has(location)) continue;
+    seenLocations.add(location);
+    picks.push({
+      overall: (entry.round - 1) * teamCount + entry.pickInRound,
+      playerName: entry.playerName,
+      fantasyTeamName: entry.fantasyTeamName
+    });
+  }
+  return picks;
+}
+
 export function findDraftBoard(): Element | null {
+  const semanticRows = semanticPickElements(document);
+  if (semanticRows.length > 0) {
+    let container = semanticRows[0]?.parentElement ?? document.body;
+    while (container.parentElement && !semanticRows.every((row) => container.contains(row))) {
+      container = container.parentElement;
+    }
+    return container;
+  }
   return findFirstMatchingSelector(document, selectors.draftBoard);
 }
 
@@ -37,7 +97,8 @@ export function parseVisiblePicks(board: Element): ObservedPick[] {
       ?? text(findFirstMatchingSelector(row, selectors.teamName));
     if (overall && playerName && fantasyTeamName) picks.push({ overall, playerName, fantasyTeamName });
   }
-  return picks;
+  if (picks.length > 0) return picks;
+  return parsePickHistoryEntries(semanticPickElements(board).map((element) => text(element)));
 }
 
 export function leagueIdFromLocation(location: Location): string | undefined {

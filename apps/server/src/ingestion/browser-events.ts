@@ -6,7 +6,7 @@ import {
   type DraftState,
   type Player
 } from "@war-room/shared";
-import { getRoundAndPick } from "../draft/snake.js";
+import { getDraftSlotForOverallPick, getRoundAndPick } from "../draft/snake.js";
 
 function comparableName(value: string): string {
   return value.toLocaleLowerCase().replace(/[^a-z0-9]/g, "");
@@ -37,7 +37,9 @@ export function normalizeBrowserPayload(
   const picks: DraftPick[] = [];
   const unresolved: BrowserNormalizationResult["unresolved"] = [];
   for (const pick of payload.picks) {
-    const fantasyTeamId = teamByName.get(comparableName(pick.fantasyTeamName));
+    const draftSlot = getDraftSlotForOverallPick(pick.overall, state.league.teamCount);
+    const fantasyTeamId = teamByName.get(comparableName(pick.fantasyTeamName))
+      ?? state.teams.find((team) => team.draftSlot === draftSlot)?.teamId;
     if (!fantasyTeamId) {
       unresolved.push({ overall: pick.overall, reason: `Unknown fantasy team: ${pick.fantasyTeamName}` });
       continue;
