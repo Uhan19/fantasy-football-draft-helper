@@ -1,9 +1,9 @@
 const endpoint = "http://127.0.0.1:8787/internal/browser/picks";
 
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message?.type === "UPDATE_WAR_ROOM_STATUS") {
     void chrome.storage.session
-      .set({ warRoomStatus: message.status })
+      .set({ [`warRoomStatus:${sender.tab?.id ?? "unknown"}`]: message.status })
       .then(() => sendResponse({ ok: true }))
       .catch(() => sendResponse({ ok: false, error: "Could not update extension status" }));
     return true;
@@ -23,11 +23,13 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
           "Content-Type": "application/json",
           "X-Draft-Secret": browserIngestSecret
         },
-        body: JSON.stringify(message.payload)
+        body: JSON.stringify(message.payload),
+        signal: AbortSignal.timeout(5000)
       });
+      const result = await response.json();
       sendResponse(response.ok
-        ? { ok: true }
-        : { ok: false, error: `Local server returned HTTP ${response.status}` });
+        ? { ok: true, ...result }
+        : { ok: false, error: result.error ?? `Local server returned HTTP ${response.status}` });
     } catch {
       sendResponse({ ok: false, error: "Could not reach the local draft server" });
     }

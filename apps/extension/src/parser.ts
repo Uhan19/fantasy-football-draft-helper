@@ -5,7 +5,9 @@ import {
 } from "./selectors.js";
 
 export interface ObservedPick {
-  overall: number;
+  overall?: number;
+  round?: number;
+  pickInRound?: number;
   playerName: string;
   fantasyTeamName: string;
 }
@@ -33,9 +35,10 @@ function pickNumber(row: Element): number | undefined {
 export function parsePickHistoryText(value: string): PickHistoryEntry | undefined {
   const normalized = value.replace(/\s+/g, " ").trim();
   const match = normalized.match(
-    /^(.+?)\s+\/\s+\S+\s+(?:QB|RB|WR|TE|K|D\/ST)\s+R(\d+),\s*P(\d+)\s+-\s+(.+)$/i
+    /^(.+?)\s*\/\s*[A-Z]{2,4}\s*(?:QB|RB|WR|TE|K|D\/ST)(?:\s+CB)?\s*R(\d+),\s*P(\d+)\s*[-–—]\s*(.+)$/i
   );
   if (!match?.[1] || !match[2] || !match[3] || !match[4]) return undefined;
+  if (Number(match[2]) < 1 || Number(match[3]) < 1 || /R\d+,\s*P\d+/i.test(match[4])) return undefined;
   return {
     playerName: match[1].trim(),
     round: Number(match[2]),
@@ -44,12 +47,23 @@ export function parsePickHistoryText(value: string): PickHistoryEntry | undefine
   };
 }
 
+function pickText(element: Element): string {
+  // Labels can contain separators absent from nested textContent.
+  const label = element.getAttribute("aria-label");
+  if (label && label.length < 400 && parsePickHistoryText(label)) return label;
+  const raw = text(element);
+  if (raw.length > 400 || !/R\d+,\s*P\d+/i.test(raw)) return "";
+  if (parsePickHistoryText(raw)) return raw;
+  const rendered = (element as HTMLElement).innerText;
+  return rendered && parsePickHistoryText(rendered) ? rendered : "";
+}
+
 function semanticPickElements(root: ParentNode): Element[] {
-  const candidates = [...root.querySelectorAll("*")].filter((element) =>
-    Boolean(parsePickHistoryText(text(element)))
+  const candidates = [...root.querySelectorAll("*:not(script):not(style)")].filter((element) =>
+    Boolean(pickText(element))
   );
   return candidates.filter((element) =>
-    ![...element.children].some((child) => Boolean(parsePickHistoryText(text(child))))
+    ![...element.children].some((child) => Boolean(pickText(child)))
   );
 }
 
@@ -59,7 +73,6 @@ export function parsePickHistoryEntries(entries: readonly string[]): ObservedPic
     .filter((entry): entry is PickHistoryEntry => Boolean(entry));
   if (parsed.length === 0) return [];
 
-  const teamCount = Math.max(...parsed.map((entry) => entry.pickInRound));
   const seenLocations = new Set<string>();
   const picks: ObservedPick[] = [];
   for (const entry of parsed) {
@@ -67,7 +80,8 @@ export function parsePickHistoryEntries(entries: readonly string[]): ObservedPic
     if (seenLocations.has(location)) continue;
     seenLocations.add(location);
     picks.push({
-      overall: (entry.round - 1) * teamCount + entry.pickInRound,
+      round: entry.round,
+      pickInRound: entry.pickInRound,
       playerName: entry.playerName,
       fantasyTeamName: entry.fantasyTeamName
     });
@@ -98,7 +112,7 @@ export function parseVisiblePicks(board: Element): ObservedPick[] {
     if (overall && playerName && fantasyTeamName) picks.push({ overall, playerName, fantasyTeamName });
   }
   if (picks.length > 0) return picks;
-  return parsePickHistoryEntries(semanticPickElements(board).map((element) => text(element)));
+  return parsePickHistoryEntries(semanticPickElements(board).map(pickText));
 }
 
 export function leagueIdFromLocation(location: Location): string | undefined {

@@ -3,6 +3,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import type { DraftStateStore } from "../draft/state.js";
 import { normalizeBrowserPayload } from "../ingestion/browser-events.js";
 import { sendJson } from "./response.js";
+import { BrowserPickPayloadSchema } from "@war-room/shared";
 
 function secretMatches(expected: string, actual: string | undefined): boolean {
   if (!actual) return false;
@@ -37,11 +38,18 @@ export async function handleBrowserIngest(
     return;
   }
   try {
-    const body = await readJson(request);
+    const body = BrowserPickPayloadSchema.parse(await readJson(request));
     const result = normalizeBrowserPayload(body, store.get());
-    store.applyBrowserPicks(result.picks);
+    store.applyBrowserPicks(result.picks, {
+      detectedPicks: body.diagnostics?.detectedPicks ?? body.picks.length,
+      submittedPicks: body.picks.length,
+      acceptedPicks: result.picks.length,
+      observerActive: body.diagnostics?.observerActive ?? true,
+      unresolved: result.unresolved
+    });
     sendJson(response, 202, {
       accepted: result.picks.length,
+      acceptedIndices: result.acceptedIndices,
       unresolved: result.unresolved
     });
   } catch (error) {

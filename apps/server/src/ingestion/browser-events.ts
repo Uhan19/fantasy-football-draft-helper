@@ -14,7 +14,8 @@ function comparableName(value: string): string {
 
 export interface BrowserNormalizationResult {
   picks: DraftPick[];
-  unresolved: Array<{ overall: number; reason: string }>;
+  acceptedIndices: number[];
+  unresolved: Array<{ index: number; overall: number; reason: string }>;
 }
 
 export function normalizeBrowserPayload(
@@ -36,20 +37,32 @@ export function normalizeBrowserPayload(
 
   const picks: DraftPick[] = [];
   const unresolved: BrowserNormalizationResult["unresolved"] = [];
-  for (const pick of payload.picks) {
-    const draftSlot = getDraftSlotForOverallPick(pick.overall, state.league.teamCount);
+  const acceptedIndices: number[] = [];
+  for (const [index, pick] of payload.picks.entries()) {
+    const overall = pick.round !== undefined && pick.pickInRound !== undefined
+      ? (pick.round - 1) * state.league.teamCount + pick.pickInRound
+      : pick.overall!;
+    if ((pick.pickInRound !== undefined && pick.pickInRound > state.league.teamCount)
+      || (pick.overall !== undefined && pick.overall !== overall)
+      || (state.league.draft.rounds && overall > state.league.draft.rounds * state.league.teamCount)) {
+      unresolved.push({ index, overall, reason: "Pick location is outside the configured draft" });
+      continue;
+    }
+    const draftSlot = state.league.draft.type === "SNAKE"
+      ? getDraftSlotForOverallPick(overall, state.league.teamCount) : undefined;
     const fantasyTeamId = teamByName.get(comparableName(pick.fantasyTeamName))
-      ?? state.teams.find((team) => team.draftSlot === draftSlot)?.teamId;
+      ?? (draftSlot ? state.teams.find((team) => team.draftSlot === draftSlot)?.teamId : undefined);
     if (!fantasyTeamId) {
-      unresolved.push({ overall: pick.overall, reason: `Unknown fantasy team: ${pick.fantasyTeamName}` });
+      unresolved.push({ index, overall, reason: `Unknown fantasy team: ${pick.fantasyTeamName}` });
       continue;
     }
     const catalogPlayer =
       playerByName.get(comparableName(pick.playerName))
-      ?? unknownPlayer(-pick.overall, pick.playerName);
-    const location = getRoundAndPick(pick.overall, state.league.teamCount);
+      ?? unknownPlayer(-overall, pick.playerName);
+    const location = getRoundAndPick(overall, state.league.teamCount);
+    acceptedIndices.push(index);
     picks.push({
-      overall: pick.overall,
+      overall,
       round: location.round,
       pickInRound: location.pickInRound,
       fantasyTeamId,
@@ -63,5 +76,5 @@ export function normalizeBrowserPayload(
       observedAt: payload.observedAt
     });
   }
-  return { picks, unresolved };
+  return { picks, unresolved, acceptedIndices };
 }

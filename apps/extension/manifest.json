@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "ESPN Draft War Room",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Read-only fallback observer for ESPN fantasy football draft rooms.",
   "permissions": ["storage"],
   "host_permissions": ["http://127.0.0.1:8787/*"],

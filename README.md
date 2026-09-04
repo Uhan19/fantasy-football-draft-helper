@@ -15,6 +15,8 @@ The project never drafts a player or changes ESPN state. ESPN session cookies st
 - API/browser reconciliation with ESPN IDs taking precedence
 - Streamable HTTP MCP with a single read-only tool
 - Local debug endpoints and a JSON snapshot
+- A responsive localhost dashboard with automatic updates, a snake draft board, searchable
+  available players, all team rosters, ingestion diagnostics, MCP activity, and JSON export
 - Manifest V3 ESPN draft-room observer fallback
 - Fixture-only unit/integration tests and a mock draft simulator
 
@@ -69,6 +71,19 @@ The adapter targets ESPN's current read host, `lm-api-reads.fantasy.espn.com`; t
 pnpm start
 ```
 
+Open **http://127.0.0.1:8787/** in Chrome, Safari, or any browser. This is the draft
+dashboard; port **8080** is the tunnel client's separate control UI. No Codex client,
+tunnel, ChatGPT subscription, or AI API calls are needed to view the dashboard.
+
+The dashboard updates every two seconds. **Connections & logs** separates server
+reachability from ESPN polling, browser reports, accepted picks, and MCP tool requests.
+An MCP session alone does not prove that ChatGPT read the draft: ask your connected
+client to call `get_draft_state`, then check the last tool-request time.
+
+The HTTP server starts even if ESPN initialization fails, showing the error and
+configured league on the dashboard while retrying. Expired practice rooms can return
+404: update the league/team/season in `.env` for the new room, then restart the server.
+
 Development mode:
 
 ```bash
@@ -79,6 +94,8 @@ The process binds only to `127.0.0.1` and serves:
 
 | Endpoint | Purpose |
 | --- | --- |
+| `GET /` or `/ui` | Local draft dashboard |
+| `GET /api/dashboard` | Dashboard data and connection diagnostics; no secrets |
 | `POST/GET/DELETE /mcp` | MCP Streamable HTTP transport |
 | `GET /health` | Process, ESPN, and initialization health |
 | `GET /debug/state` | Full normalized state |
@@ -115,6 +132,21 @@ pnpm --filter @war-room/extension build
 5. Open the extension popup and enter the same `BROWSER_INGEST_SECRET` as `.env`.
 6. Click **Save for this browser session** and confirm it reports **Saved and connected**.
 7. Confirm the popup shows the draft page, local server, and observer as active.
+
+After an update, reload the unpacked extension at `chrome://extensions`, refresh the
+ESPN draft page, then save the ingest secret again. The current extension version is
+**1.1.0**. Extension reloads clear the session secret. The popup links to the dashboard
+and reports both visible and accepted pick counts.
+
+The extension sends round/pick coordinates; the server uses the configured league size
+to derive overall numbers. Unresolved rows remain eligible for retry. A heartbeat reports
+every ~10 seconds and expires after 30 seconds without a report. A green connection
+with zero detected picks means the server is reachable but no pick rows were recognized.
+
+Opening a room late may expose only recent history. The dashboard marks missing earlier
+picks and warns that rosters/availability are incomplete. Open ESPN's Pick History to
+make earlier rows available for capture; the observer cannot recover rows ESPN does not
+render. Saved picks are restored on server startup only for the same league and season.
 
 The extension observes only already-rendered draft rows. It does not read ESPN cookies, inject UI, inspect unrelated sites, or submit picks. ESPN DOM selectors live in one file (`apps/extension/src/selectors.ts`) so markup changes are easy to repair.
 

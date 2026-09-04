@@ -46,15 +46,19 @@ export function rebuildDerivedState(state: DraftState): DraftState {
     };
   });
 
-  const completedPicks = state.picks.length;
+  // A room opened late may expose only recent picks. Do not rewind the clock to
+  // the number of rows we happened to capture.
+  const completedPicks = Math.max(0, ...state.picks.map((pick) => pick.overall));
   const nextOverallPick = completedPicks + 1;
   const current = getRoundAndPick(nextOverallPick, state.league.teamCount);
   const userTeam = teams.find((team) => team.teamId === state.user.teamId);
   const draftSlot = userTeam?.draftSlot;
-  const isFinished = state.status === "COMPLETE";
+  const totalPicks = state.league.draft.rounds ? state.league.teamCount * state.league.draft.rounds : undefined;
+  const isFinished = state.status === "COMPLETE" || (totalPicks !== undefined && completedPicks >= totalPicks);
   const upcoming =
     draftSlot && state.league.draft.type === "SNAKE" && !isFinished
       ? getNextPicksForDraftSlot(draftSlot, completedPicks, state.league.teamCount, 2)
+        .filter((pick) => totalPicks === undefined || pick <= totalPicks)
       : [];
   const nextPick = upcoming[0];
   const followingPick = upcoming[1];
@@ -66,6 +70,7 @@ export function rebuildDerivedState(state: DraftState): DraftState {
 
   return {
     ...state,
+    status: isFinished ? "COMPLETE" : state.status,
     teams,
     draftedPlayerIds: state.picks.filter((pick) => pick.playerId > 0).map((pick) => pick.playerId),
     user: {
@@ -77,6 +82,8 @@ export function rebuildDerivedState(state: DraftState): DraftState {
     },
     current: {
       completedPicks,
+      recordedPicks: state.picks.length,
+      missingPicks: completedPicks - state.picks.length,
       nextOverallPick,
       round: current.round,
       pickInRound: current.pickInRound,

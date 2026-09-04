@@ -7,6 +7,7 @@ import type { DraftStateStore } from "../draft/state.js";
 import { createWarRoomMcpServer } from "../mcp/server.js";
 import { handleBrowserIngest } from "./browser-ingest.js";
 import { sendJson } from "./response.js";
+import { dashboardData, serveDashboard } from "./dashboard.js";
 
 interface JsonRpcBody {
   method?: unknown;
@@ -37,10 +38,16 @@ function applyBrowserCors(request: IncomingMessage, response: ServerResponse): b
   return true;
 }
 
-export async function startHttpServer(config: AppConfig, store: DraftStateStore) {
+export async function startHttpServer(config: AppConfig,
+  source: DraftStateStore | (() => DraftStateStore | undefined),
+  initializationError: () => string | undefined = () => undefined) {
+  const getStore = () => typeof source === "function" ? source() : source;
   const transports = new Map<string, StreamableHTTPServerTransport>();
+  let lastToolCallAt: string | undefined;
 
   async function handleMcp(request: IncomingMessage, response: ServerResponse): Promise<void> {
+    const store = getStore();
+    if (!store) { sendJson(response, 503, { error: "ESPN league is not initialized. Check the local dashboard." }); return; }
     const sessionIdHeader = request.headers["mcp-session-id"];
     const sessionId = Array.isArray(sessionIdHeader) ? sessionIdHeader[0] : sessionIdHeader;
     let transport = sessionId ? transports.get(sessionId) : undefined;
@@ -65,7 +72,7 @@ export async function startHttpServer(config: AppConfig, store: DraftStateStore)
       transport.onclose = () => {
         if (transport?.sessionId) transports.delete(transport.sessionId);
       };
-      const mcpServer = createWarRoomMcpServer(store);
+      const mcpServer = createWarRoomMcpServer(store, () => { lastToolCallAt = new Date().toISOString(); });
       await mcpServer.connect(transport);
     }
 
@@ -79,17 +86,30 @@ export async function startHttpServer(config: AppConfig, store: DraftStateStore)
   const server = createServer((request, response) => {
     void (async () => {
       const url = new URL(request.url ?? "/", `http://${config.host}:${config.port}`);
+      const store = getStore();
+      if (request.method === "GET" && await serveDashboard(url.pathname, response)) return;
+      if (url.pathname === "/api/dashboard" && request.method === "GET") {
+        response.setHeader("Cache-Control", "no-store");
+        sendJson(response, 200, dashboardData(config, store?.get(), {
+          sessions: transports.size, lastToolCallAt
+        }, initializationError()));
+        return;
+      }
       if (url.pathname === "/mcp") {
         await handleMcp(request, response);
         return;
       }
       if (url.pathname === "/health" && request.method === "GET") {
-        const state = store.get();
+        const state = store?.get();
         sendJson(response, 200, {
           ok: true,
-          espn: state.ingest.apiHealthy,
-          draftStateInitialized: true
+          espn: state?.ingest.apiHealthy ?? false,
+          draftStateInitialized: Boolean(store)
         });
+        return;
+      }
+      if (!store) {
+        sendJson(response, 503, { error: initializationError() ?? "Waiting for ESPN league data" });
         return;
       }
       if (url.pathname === "/debug/state" && request.method === "GET") {
@@ -151,6 +171,8 @@ export async function startHttpServer(config: AppConfig, store: DraftStateStore)
     server.once("error", reject);
     server.listen(config.port, config.host, () => resolve());
   });
-  console.log(`✓ Local HTTP + MCP server: http://${config.host}:${config.port}/mcp`);
+  server.on("close", () => { for (const transport of transports.values()) void transport.close(); });
+  console.log(`✓ Draft dashboard: http://${config.host}:${config.port}/`);
+  console.log(`✓ Local MCP endpoint: http://${config.host}:${config.port}/mcp`);
   return server;
 }

@@ -1,4 +1,4 @@
-import { mkdir, rename, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import {
   type DraftPick,
@@ -8,6 +8,8 @@ import {
   type LeagueConfig,
   type Player
 } from "@war-room/shared";
+import { z } from "zod";
+import { FootballPositionSchema } from "@war-room/shared";
 import type { ParsedDraftDetail } from "../espn/types.js";
 import { emptyPositionCounts } from "./roster.js";
 import { rebuildDerivedState } from "./reducer.js";
@@ -27,6 +29,7 @@ export class DraftStateStore {
   readonly #snapshotPath?: string;
   readonly #now: () => Date;
   readonly #listeners = new Set<(state: DraftState) => void>();
+  #persistence = Promise.resolve();
 
   constructor(options: DraftStateStoreOptions) {
     if (!options.teams.some((team) => team.teamId === options.myTeamId)) {
@@ -57,8 +60,38 @@ export class DraftStateStore {
   }
 
   get(): DraftState {
-    return structuredClone(this.#state);
+    const state = structuredClone(this.#state);
+    const browserAt = state.ingest.lastBrowserEventAt;
+    state.ingest.browserConnected = Boolean(browserAt && this.#now().getTime() - Date.parse(browserAt) < 30_000);
+    return state;
   }
+
+  async restoreSnapshot(): Promise<void> {
+    if (!this.#snapshotPath) return;
+    try {
+      const snapshot = z.object({
+        league: z.object({ leagueId: z.string(), season: z.number() }),
+        picks: z.array(z.object({
+          overall: z.number().int().positive(), round: z.number().int().positive(),
+          pickInRound: z.number().int().positive(), fantasyTeamId: z.number().int().positive(),
+          playerId: z.number().int(), source: z.enum(["browser", "espn-api"]),
+          observedAt: z.iso.datetime(),
+          player: z.object({ name: z.string(), position: FootballPositionSchema, nflTeam: z.string().optional() })
+        }))
+      }).parse(JSON.parse(await readFile(this.#snapshotPath, "utf8")));
+      if (snapshot.league.leagueId !== this.#state.league.leagueId
+        || snapshot.league.season !== this.#state.league.season) return;
+      const picks = snapshot.picks.filter((pick) => this.#state.teams.some((team) => team.teamId === pick.fantasyTeamId));
+      this.#state = rebuildDerivedState({ ...this.#state, picks: reconcilePicks([], picks).picks,
+        ingest: { ...this.#state.ingest,
+          lastBrowserPickAt: picks.filter((pick) => pick.source === "browser").at(-1)?.observedAt },
+        status: picks.length ? "IN_PROGRESS" : "PRE_DRAFT" });
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") console.warn("Local draft snapshot could not be restored");
+    }
+  }
+
+  flushSnapshot(): Promise<void> { return this.#persistence; }
 
   subscribe(listener: (state: DraftState) => void): () => void {
     this.#listeners.add(listener);
@@ -71,7 +104,7 @@ export class DraftStateStore {
     const browserAhead = result.picks.some(
       (pick) => pick.source === "browser" && !picks.some((api) => api.overall === pick.overall)
     );
-    const lastBrowserAt = this.#state.ingest.lastBrowserEventAt;
+    const lastBrowserAt = this.#state.ingest.lastBrowserPickAt;
     const browserWaitMs = lastBrowserAt ? this.#now().getTime() - Date.parse(lastBrowserAt) : 0;
     const warning = browserAhead
       ? browserWaitMs >= 5000
@@ -87,7 +120,7 @@ export class DraftStateStore {
       ? "COMPLETE"
       : detail.inProgress
         ? "IN_PROGRESS"
-        : "PRE_DRAFT";
+        : result.picks.length > 0 ? "IN_PROGRESS" : "PRE_DRAFT";
 
     this.#state = rebuildDerivedState({
       ...this.#state,
@@ -114,7 +147,7 @@ export class DraftStateStore {
     }
   }
 
-  applyBrowserPicks(picks: readonly DraftPick[]): void {
+  applyBrowserPicks(picks: readonly DraftPick[], diagnostics?: DraftState["ingest"]["browserDiagnostics"]): void {
     const now = this.#now().toISOString();
     const result = reconcilePicks(this.#state.picks, picks);
     const inferredStatus = this.#state.status === "PRE_DRAFT" && result.picks.length > 0
@@ -130,6 +163,8 @@ export class DraftStateStore {
         browserConnected: true,
         browserFallbackActive: result.changed || this.#state.ingest.browserFallbackActive,
         lastBrowserEventAt: now,
+        ...(diagnostics ? { browserDiagnostics: diagnostics } : {}),
+        ...(result.changed ? { lastBrowserPickAt: now } : {}),
         ...(result.changed ? { lastStateChangeAt: now } : {}),
         ...(result.changed ? { warning: "Browser pick is awaiting ESPN confirmation." } : {})
       }
@@ -150,7 +185,10 @@ export class DraftStateStore {
       console.log(`Pick ${pick.overall}: ${pick.player.name} → Team ${pick.fantasyTeamId}`);
     }
     this.#emit();
-    if (changed) void this.#persist();
+    if (changed) {
+      const snapshot = JSON.stringify(this.#state, null, 2);
+      this.#persistence = this.#persistence.then(() => this.#persist(snapshot));
+    }
   }
 
   #emit(): void {
@@ -158,12 +196,12 @@ export class DraftStateStore {
     for (const listener of this.#listeners) listener(snapshot);
   }
 
-  async #persist(): Promise<void> {
+  async #persist(snapshot: string): Promise<void> {
     if (!this.#snapshotPath) return;
     try {
       await mkdir(dirname(this.#snapshotPath), { recursive: true });
       const temporaryPath = `${this.#snapshotPath}.tmp`;
-      await writeFile(temporaryPath, `${JSON.stringify(this.#state, null, 2)}\n`, { mode: 0o600 });
+      await writeFile(temporaryPath, `${snapshot}\n`, { mode: 0o600 });
       await rename(temporaryPath, this.#snapshotPath);
     } catch (error) {
       console.warn("Unable to write local draft snapshot", {

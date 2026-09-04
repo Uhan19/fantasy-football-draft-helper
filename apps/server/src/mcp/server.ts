@@ -2,7 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { DraftStateStore } from "../draft/state.js";
 import { getDraftState, getDraftStateInput } from "./tools/get-draft-state.js";
 
-export function createWarRoomMcpServer(store: DraftStateStore): McpServer {
+export function createWarRoomMcpServer(store: DraftStateStore, onToolCall?: () => void): McpServer {
   const server = new McpServer({ name: "espn-fantasy-draft-war-room", version: "1.0.0" });
   server.registerTool(
     "get_draft_state",
@@ -20,6 +20,7 @@ export function createWarRoomMcpServer(store: DraftStateStore): McpServer {
     },
     async (input) => {
       const result = getDraftState(store, input);
+      onToolCall?.();
       return {
         content: [{ type: "text", text: JSON.stringify(result) }]
       };

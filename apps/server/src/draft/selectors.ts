@@ -28,7 +28,11 @@ export function selectMcpDraftState(
   const now = Date.now();
   const lastChange = state.ingest.lastStateChangeAt;
   const secondsAgo = lastChange ? Math.max(0, (now - Date.parse(lastChange)) / 1000) : undefined;
-  const stale = state.status === "IN_PROGRESS" && (secondsAgo === undefined || secondsAgo > 30);
+  const incomplete = (state.current.missingPicks ?? 0) > 0;
+  const stale = incomplete || (state.status === "IN_PROGRESS" && (secondsAgo === undefined || secondsAgo > 30));
+  const warning = incomplete
+    ? `${state.current.missingPicks} earlier picks are missing; rosters and player availability are incomplete.`
+    : state.ingest.warning;
   const drafted = new Set(state.draftedPlayerIds);
   const availableCount = Math.min(200, Math.max(1, options.availablePlayerCount ?? 80));
   const recentCount = Math.min(50, Math.max(1, options.recentPickCount ?? 15));
@@ -59,7 +63,7 @@ export function selectMcpDraftState(
       browserConnected: state.ingest.browserConnected,
       browserFallbackActive: state.ingest.browserFallbackActive,
       stale,
-      ...(stale ? { warning: state.ingest.warning ?? "Draft state may be stale" } : state.ingest.warning ? { warning: state.ingest.warning } : {})
+      ...(stale ? { warning: warning ?? "Draft state may be stale" } : warning ? { warning } : {})
     },
     league: {
       id: state.league.leagueId,

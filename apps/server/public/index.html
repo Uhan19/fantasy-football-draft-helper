@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>War Room · Draft HQ</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='10' fill='%23f2764f'/%3E%3Ctext x='20' y='28' font-size='27' text-anchor='middle' fill='%23111820'%3EW%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/assets/dashboard.css">
+  <script src="/assets/dashboard.js" defer></script>
+</head>
+<body>
+  <aside class="sidebar">
+    <a class="brand" href="#overview"><span class="brand-mark">W<span>R</span></span><span>WAR ROOM<small>FANTASY FOOTBALL</small></span></a>
+    <p class="nav-label">DRAFT DESK</p>
+    <nav aria-label="Dashboard sections">
+      <a href="#overview" data-page="overview"><span>◫</span> Overview</a>
+      <a href="#board" data-page="board"><span>▦</span> Draft board</a>
+      <a href="#players" data-page="players"><span>⌕</span> Available players</a>
+      <a href="#rosters" data-page="rosters"><span>☷</span> Team rosters</a>
+      <a href="#connections" data-page="connections"><span>⌁</span> Connections & logs</a>
+    </nav>
+    <div class="sidebar-bottom"><span class="local-dot"></span> LOCAL WORKSPACE<p>Read-only draft tracking.<br>Your picks stay yours.</p><a id="espn-link" href="https://fantasy.espn.com/" target="_blank" rel="noreferrer">Open ESPN draft room ↗</a></div>
+  </aside>
+  <div class="workspace">
+    <header class="topbar"><div><span class="muted">Workspace</span><span class="slash">/</span><span id="page-title">Overview</span></div><div class="topbar-right"><span id="sync-status" role="status">Connecting…</span><button id="refresh" class="button subtle">↻ Refresh</button><button id="export" class="button" disabled>↓ Export JSON</button></div></header>
+    <main>
+      <div class="page-heading"><div><p class="eyebrow">YOUR DRAFT. IN FOCUS.</p><h1 id="league-name">Draft HQ<span class="accent">.</span></h1><p id="league-meta" class="muted">Connecting to your local draft server…</p></div><span id="draft-status" class="badge">WAITING</span></div>
+      <div id="offline-banner" class="notice danger" role="alert" hidden></div>
+      <div id="notices" aria-live="polite"></div>
+      <div id="setup" hidden></div>
+      <div id="draft-content" hidden>
+        <section id="view-overview" class="view">
+          <div id="metrics" class="metrics"></div>
+          <div class="overview-grid">
+            <section class="panel recent-panel"><div class="panel-heading"><div><p class="eyebrow">THE LIVE FEED</p><h2>Recent picks</h2></div><a href="#board">Full board ↗</a></div><div id="recent-picks"></div></section>
+            <section class="panel roster-panel"><div class="panel-heading"><div><p class="eyebrow">YOUR CORNER</p><h2 id="my-team-name">My roster</h2></div><span id="my-roster-count" class="badge"></span></div><div id="roster-needs"></div><div id="my-roster"></div></section>
+            <section class="panel available-panel"><div class="panel-heading"><div><p class="eyebrow">STILL ON THE BOARD</p><h2>Best available</h2></div><a href="#players">All players ↗</a></div><div id="best-available"></div></section>
+            <section class="panel signal-panel"><div class="panel-heading"><div><p class="eyebrow">NO GUESSWORK</p><h2>Draft signals</h2></div><a href="#connections">Details ↗</a></div><div id="quick-signals"></div></section>
+          </div>
+        </section>
+        <section id="view-board" class="view" hidden><div class="panel"><div class="panel-heading"><div><p class="eyebrow">EVERY SELECTION</p><h2>Draft board</h2></div><span class="muted">Snake order · your team highlighted</span></div><div id="board" class="board-scroll"></div></div><div class="panel history-panel"><div class="panel-heading"><h2>Pick history</h2><label class="search-label"><span class="sr-only">Search picks</span><input id="pick-search" type="search" placeholder="Search player or team…"></label></div><div id="pick-history" class="table-scroll"></div></div></section>
+        <section id="view-players" class="view" hidden><div class="panel"><div class="panel-heading"><div><p class="eyebrow">YOUR NEXT MOVE</p><h2>Available players <span id="available-count" class="muted"></span></h2></div><span class="muted">ESPN rankings · no AI calls</span></div><div class="filters"><label><span class="sr-only">Search available players</span><input id="player-search" type="search" placeholder="Search player or NFL team…"></label><label><span class="sr-only">Position</span><select id="position-filter"><option value="ALL">All positions</option><option>QB</option><option>RB</option><option>WR</option><option>TE</option><option>K</option><option value="DST">D/ST</option></select></label><label><span class="sr-only">Sort players</span><select id="player-sort"><option value="rank">ESPN rank</option><option value="points">Projected points</option><option value="name">Player name</option></select></label></div><div id="player-list" class="table-scroll"></div><div class="pagination"><button id="previous-page" class="button">← Previous</button><span id="player-page" class="muted"></span><button id="next-page" class="button">Next →</button></div></div></section>
+        <section id="view-rosters" class="view" hidden><div id="all-rosters" class="roster-grid"></div></section>
+      </div>
+      <section id="view-connections" class="view" hidden><div id="connections"></div><div class="panel history-panel"><div class="panel-heading"><div><p class="eyebrow">WHAT HAS CHANGED</p><h2>Activity log</h2></div><span class="muted">This dashboard session</span></div><div id="activity-log"></div></div></section>
+      <footer><span>WAR ROOM <span class="muted">/ Local draft companion</span></span><span id="footer-status">Updates automatically every 2 seconds</span></footer>
+    </main>
+  </div>
+</body>
+</html>

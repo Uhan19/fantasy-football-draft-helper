@@ -73,7 +73,7 @@ export function parseLeagueConfig(
 
   return LeagueConfigSchema.parse({
     leagueId: String(root.id ?? fallback.leagueId),
-    ...(root.name ? { name: root.name } : {}),
+    ...(root.name || typeof settings.name === "string" ? { name: root.name ?? settings.name } : {}),
     season: root.seasonId ?? fallback.season,
     teamCount,
     scoring: receptionPoints === undefined ? {} : { receptionPoints },
@@ -98,7 +98,8 @@ export function parseFantasyTeams(input: unknown): FantasyTeam[] {
 
     return FantasyTeamSchema.parse({
       teamId,
-      name: `${location} ${nickname}`.trim() || `Team ${teamId ?? "unknown"}`,
+      name: (typeof team.name === "string" ? team.name.trim() : "")
+        || `${location} ${nickname}`.trim() || `Team ${teamId ?? "unknown"}`,
       ...(typeof team.abbrev === "string" && team.abbrev ? { abbreviation: team.abbrev } : {}),
       ...(displayName ? { owner: displayName } : {})
     });
