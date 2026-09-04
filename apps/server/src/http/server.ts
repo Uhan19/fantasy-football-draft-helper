@@ -8,6 +8,12 @@ import { createWarRoomMcpServer } from "../mcp/server.js";
 import { handleBrowserIngest } from "./browser-ingest.js";
 import { sendJson } from "./response.js";
 import { dashboardData, serveDashboard } from "./dashboard.js";
+import { LeagueSelectionSchema, type LeagueSelection } from "../league-selection.js";
+
+interface LeagueControls {
+  switchLeague: (selection: LeagueSelection) => Promise<void>;
+  isSwitching: () => boolean;
+}
 
 interface JsonRpcBody {
   method?: unknown;
@@ -40,7 +46,8 @@ function applyBrowserCors(request: IncomingMessage, response: ServerResponse): b
 
 export async function startHttpServer(config: AppConfig,
   source: DraftStateStore | (() => DraftStateStore | undefined),
-  initializationError: () => string | undefined = () => undefined) {
+  initializationError: () => string | undefined = () => undefined,
+  leagueControls?: LeagueControls) {
   const getStore = () => typeof source === "function" ? source() : source;
   const transports = new Map<string, StreamableHTTPServerTransport>();
   let lastToolCallAt: string | undefined;
@@ -72,7 +79,7 @@ export async function startHttpServer(config: AppConfig,
       transport.onclose = () => {
         if (transport?.sessionId) transports.delete(transport.sessionId);
       };
-      const mcpServer = createWarRoomMcpServer(store, () => { lastToolCallAt = new Date().toISOString(); });
+      const mcpServer = createWarRoomMcpServer(getStore, () => { lastToolCallAt = new Date().toISOString(); });
       await mcpServer.connect(transport);
     }
 
@@ -90,9 +97,38 @@ export async function startHttpServer(config: AppConfig,
       if (request.method === "GET" && await serveDashboard(url.pathname, response)) return;
       if (url.pathname === "/api/dashboard" && request.method === "GET") {
         response.setHeader("Cache-Control", "no-store");
-        sendJson(response, 200, dashboardData(config, store?.get(), {
+        sendJson(response, 200, { ...dashboardData(config, store?.get(), {
           sessions: transports.size, lastToolCallAt
-        }, initializationError()));
+        }, initializationError()), leagueSelection: {
+          enabled: Boolean(leagueControls), switching: leagueControls?.isSwitching() ?? false
+        } });
+        return;
+      }
+      if (url.pathname === "/api/league") {
+        if (request.method !== "POST") { sendJson(response, 405, { error: "Use POST to connect a league" }); return; }
+        const port = typeof server.address() === "object" ? (server.address() as { port: number }).port : config.port;
+        const allowedHosts = [`127.0.0.1:${port}`, `localhost:${port}`];
+        const origin = request.headers.origin;
+        if (!allowedHosts.includes(request.headers.host ?? "")
+          || (origin && !allowedHosts.some((host) => origin === `http://${host}`))
+          || request.headers["sec-fetch-site"] === "cross-site"
+          || request.headers["x-war-room-request"] !== "1") {
+          sendJson(response, 403, { error: "Change leagues from the local dashboard" }); return;
+        }
+        if (!leagueControls) { sendJson(response, 409, { error: "League switching is unavailable in the draft simulator. Open your real dashboard on port 8787." }); return; }
+        if (leagueControls.isSwitching()) { sendJson(response, 409, { error: "A league connection is already in progress" }); return; }
+        const parsed = LeagueSelectionSchema.safeParse(await readBody(request).catch(() => undefined));
+        if (!parsed.success) { sendJson(response, 400, { error: "Enter a numeric league ID, a season from 2000–2100, and a positive team ID" }); return; }
+        try {
+          await leagueControls.switchLeague(parsed.data);
+          lastToolCallAt = undefined;
+          sendJson(response, 200, { ok: true, selection: parsed.data });
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "Unable to connect to this league";
+          sendJson(response, 422, { error: message.includes("404")
+            ? "ESPN could not find that league. Check the league ID and season, or paste a fresh practice-room URL. Your previous selection is unchanged."
+            : `${message}. Your previous selection is unchanged.` });
+        }
         return;
       }
       if (url.pathname === "/mcp") {
@@ -132,6 +168,7 @@ export async function startHttpServer(config: AppConfig,
         return;
       }
       if (url.pathname === "/internal/browser/picks") {
+        if (leagueControls?.isSwitching()) { sendJson(response, 409, { error: "Connecting a league; the extension will retry shortly" }); return; }
         if (!applyBrowserCors(request, response)) {
           sendJson(response, 403, { error: "Origin not allowed" });
           return;

@@ -66,8 +66,8 @@ export class DraftStateStore {
     return state;
   }
 
-  async restoreSnapshot(): Promise<void> {
-    if (!this.#snapshotPath) return;
+  async restoreSnapshot(snapshotPath = this.#snapshotPath): Promise<void> {
+    if (!snapshotPath) return;
     try {
       const snapshot = z.object({
         league: z.object({ leagueId: z.string(), season: z.number() }),
@@ -78,7 +78,7 @@ export class DraftStateStore {
           observedAt: z.iso.datetime(),
           player: z.object({ name: z.string(), position: FootballPositionSchema, nflTeam: z.string().optional() })
         }))
-      }).parse(JSON.parse(await readFile(this.#snapshotPath, "utf8")));
+      }).parse(JSON.parse(await readFile(snapshotPath, "utf8")));
       if (snapshot.league.leagueId !== this.#state.league.leagueId
         || snapshot.league.season !== this.#state.league.season) return;
       const picks = snapshot.picks.filter((pick) => this.#state.teams.some((team) => team.teamId === pick.fantasyTeamId));

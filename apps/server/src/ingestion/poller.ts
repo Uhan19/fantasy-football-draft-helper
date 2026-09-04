@@ -21,6 +21,7 @@ export class EspnDraftPoller {
   #timer?: NodeJS.Timeout;
   #stopped = true;
   #consecutiveFailures = 0;
+  #generation = 0;
 
   constructor(options: EspnDraftPollerOptions) {
     this.#client = options.client;
@@ -37,13 +38,16 @@ export class EspnDraftPoller {
   }
 
   stop(): void {
+    this.#generation += 1;
     this.#stopped = true;
     if (this.#timer) clearTimeout(this.#timer);
     this.#timer = undefined;
   }
 
   async pollOnce(): Promise<void> {
+    const generation = this.#generation;
     const raw = await this.#client.getDraftDetail();
+    if (generation !== this.#generation) return;
     const detail = parseDraftDetail(raw);
     const observedAt = new Date().toISOString();
     const picks = detail.picks.map((pick) =>
@@ -58,8 +62,10 @@ export class EspnDraftPoller {
   }
 
   async #tick(): Promise<void> {
+    const generation = this.#generation;
     try {
       await this.pollOnce();
+      if (this.#stopped || generation !== this.#generation) return;
       this.#consecutiveFailures = 0;
       const state = this.#store.get();
       const expectedPicks = state.league.draft.rounds
@@ -75,6 +81,7 @@ export class EspnDraftPoller {
       }
       this.#schedule(state.status === "IN_PROGRESS" ? this.#activeIntervalMs : this.#idleIntervalMs);
     } catch (error) {
+      if (this.#stopped || generation !== this.#generation) return;
       const message = error instanceof Error ? error.message : "Unknown ESPN polling failure";
       this.#store.markApiFailure(message);
       if (error instanceof EspnAuthenticationError) {

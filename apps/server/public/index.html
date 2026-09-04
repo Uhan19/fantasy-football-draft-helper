@@ -27,6 +27,19 @@
     <main>
       <div class="page-heading"><div><p class="eyebrow">YOUR DRAFT. IN FOCUS.</p><h1 id="league-name">Draft HQ<span class="accent">.</span></h1><p id="league-meta" class="muted">Connecting to your local draft server…</p></div><span id="draft-status" class="badge">WAITING</span></div>
       <div id="offline-banner" class="notice danger" role="alert" hidden></div>
+      <section class="panel league-selector" aria-labelledby="league-selector-title">
+        <div class="league-selector-heading"><h2 id="league-selector-title">Connect a draft</h2><span class="muted">Switch here, anytime.</span></div>
+        <form id="league-form">
+          <fieldset id="league-fields" disabled>
+            <label class="league-input">League ID or ESPN draft URL<input id="league-input" name="league" type="text" required maxlength="2048" autocomplete="off" placeholder="Paste a league ID or draft-room link"></label>
+            <label>Season<input id="league-season" name="season" type="number" min="2000" max="2100" required></label>
+            <label>My team ID<input id="league-team" name="team" type="number" min="1" max="10000" required></label>
+            <button id="connect-league" class="button primary" type="submit">Connect league →</button>
+          </fieldset>
+          <p id="league-form-status" role="status" aria-live="polite">Paste the full ESPN URL to fill all three fields. Your selection is remembered on this computer.</p>
+          <p id="league-demo-note" hidden>This is the simulator. <a href="http://127.0.0.1:8787/">Open your real dashboard to connect a league ↗</a></p>
+        </form>
+      </section>
       <div id="notices" aria-live="polite"></div>
       <div id="setup" hidden></div>
       <div id="draft-content" hidden>

@@ -80,9 +80,20 @@ reachability from ESPN polling, browser reports, accepted picks, and MCP tool re
 An MCP session alone does not prove that ChatGPT read the draft: ask your connected
 client to call `get_draft_state`, then check the last tool-request time.
 
+Use **Connect a draft** at the top of the dashboard to enter a league ID or paste a
+full ESPN draft-room URL. A URL fills the league ID, season, and your team ID automatically.
+Click **Connect league** to switch immediately; there is no `.env` edit or server restart.
+The app validates the league and team before switching, and keeps the previous selection
+if the connection fails. Existing MCP sessions follow the newly selected league.
+
+Successful selections are saved in the git-ignored `data/league-selection.json` and take
+precedence over league/team/season defaults in `.env` on later starts. Authentication and
+the browser ingest secret still come from `.env`. Draft snapshots are kept separately
+per league and season so you can switch rooms without mixing their picks.
+
 The HTTP server starts even if ESPN initialization fails, showing the error and
 configured league on the dashboard while retrying. Expired practice rooms can return
-404: update the league/team/season in `.env` for the new room, then restart the server.
+404: paste the new room's URL into **Connect a draft** and connect it from the dashboard.
 
 Development mode:
 
@@ -96,6 +107,7 @@ The process binds only to `127.0.0.1` and serves:
 | --- | --- |
 | `GET /` or `/ui` | Local draft dashboard |
 | `GET /api/dashboard` | Dashboard data and connection diagnostics; no secrets |
+| `POST /api/league` | Switch the selected league from the local dashboard |
 | `POST/GET/DELETE /mcp` | MCP Streamable HTTP transport |
 | `GET /health` | Process, ESPN, and initialization health |
 | `GET /debug/state` | Full normalized state |

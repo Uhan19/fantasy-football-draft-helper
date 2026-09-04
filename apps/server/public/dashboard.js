@@ -6,6 +6,30 @@ const empty = (title, detail = "") => `<div class="empty"><span class="empty-ico
 let data, page = "overview", playerPage = 0, refreshing = false;
 const activity = [], knownPicks = new Set();
 let lastWarning = "", lastMcpCall = "", previousConnection;
+let selectionDirty = false, selectionSubmitting = false, formSelectionKey = "", currentLeagueKey = "";
+function selectionKey(selection) { return `${selection.leagueId}:${selection.season}:${selection.myTeamId}`; }
+function setLeagueFeedback(message, state = "") {
+  $("#league-form-status").textContent = message;
+  $("#league-form-status").dataset.state = state;
+}
+function readLeagueInput() {
+  const value = $("#league-input").value.trim();
+  let leagueId = value;
+  if (!/^\d+$/.test(value)) {
+    let url;
+    try { url = new URL(value); } catch { throw new Error("Enter a numeric league ID or paste the full ESPN draft-room URL."); }
+    if (url.protocol !== "https:" || url.hostname !== "fantasy.espn.com") throw new Error("Use a draft-room URL from fantasy.espn.com.");
+    leagueId = url.searchParams.get("leagueId") ?? "";
+    const season = url.searchParams.get("seasonId"), team = url.searchParams.get("teamId");
+    if (season !== null) $("#league-season").value = season;
+    if (team !== null) $("#league-team").value = team;
+  }
+  const season = Number($("#league-season").value), myTeamId = Number($("#league-team").value);
+  if (!/^\d{1,20}$/.test(leagueId)) throw new Error("The league ID must contain only digits.");
+  if (!Number.isInteger(season) || season < 2000 || season > 2100) throw new Error("Enter a season between 2000 and 2100.");
+  if (!Number.isInteger(myTeamId) || myTeamId < 1 || myTeamId > 10000) throw new Error("Enter your positive ESPN team ID.");
+  return { leagueId, season, myTeamId };
+}
 const age = (timestamp) => {
   if (!timestamp) return "Never";
   const seconds = Math.max(0, Math.floor((Date.now() - Date.parse(timestamp)) / 1000));
@@ -100,12 +124,21 @@ function renderConnections() {
   const card = (title, status, good, detail, items) => `<section class="panel connection-card"><p class="eyebrow">${title}</p><div class="status-value ${good?"":"warn"}">${esc(status)}</div><p>${esc(detail)}</p>${rows(items)}</section>`;
   $("#connections").innerHTML = `<div class="connection-grid">${card("01 / ESPN DATA",connections.espn?"API reachable":"Needs attention",connections.espn,ingest?.warning ?? data.initializationError ?? "An API connection alone does not guarantee live practice picks.",[["Configured league",config.leagueId],["Season",config.season],["Last good poll",age(ingest?.lastEspnPollAt)],["Players loaded",state?.playerCatalog.length??0],["Recorded API picks",state?.picks.filter(p=>p.source==="espn-api").length??0]])}${card("02 / BROWSER OBSERVER",connections.browser?"Reporting":"No recent report",connections.browser,"The extension reads the ESPN room. Reports expire after 30 seconds. A connection test can succeed with zero picks.",[["Fallback enabled",config.browserFallback?"Yes":"No"],["Secret configured",config.browserSecretConfigured?"Yes":"No"],["Last report",age(ingest?.lastBrowserEventAt)],["Visible / last submitted",`${diagnostic?.detectedPicks??0} / ${diagnostic?.submittedPicks??0}`],["Last batch accepted",diagnostic?.acceptedPicks??0],["Unresolved in last batch",diagnostic?.unresolved.length??0]])}${card("03 / MCP CLIENT",connections.mcp.lastToolCallAt?"Tool request received":connections.mcp.sessions?"Session initialized":"Waiting for a client",Boolean(connections.mcp.lastToolCallAt),"A tool request confirms that an MCP client read this server. The server cannot identify whether that client was ChatGPT or another app.",[["Open sessions",connections.mcp.sessions],["Last get_draft_state",age(connections.mcp.lastToolCallAt)],["MCP endpoint",`127.0.0.1:${config.port}/mcp`],["Dashboard requires tunnel","No"]])}</div>
   ${diagnostic?.unresolved.length ? `<div class="notice danger history-panel"><strong>Unresolved browser picks</strong>${diagnostic.unresolved.map((pick)=>`<p>Pick ${pick.overall}: ${esc(pick.reason)}</p>`).join("")}</div>`:""}
-  <div class="panel setup-card history-panel"><h2>Connection checklist</h2><ol><li>Match <code>ESPN_LEAGUE_ID</code>, <code>ESPN_SEASON</code>, and <code>MY_TEAM_ID</code> in your local <code>.env</code> to the current room. New practice rooms can have different league IDs. Restart <code>pnpm start</code> after editing.</li><li>Load extension version <code>1.1.0</code> from <code>apps/extension/dist</code>, reload the extension in Chrome, then refresh the ESPN draft page.</li><li>In the extension popup, save your <code>BROWSER_INGEST_SECRET</code> for the browser session. Keep the ESPN pick history visible. Late joins may expose only recent selections.</li><li>Check visible picks and accepted picks above. Earlier gaps remain marked as missing until those rows are captured.</li><li>To verify your ChatGPT connection, ask it to call <code>get_draft_state</code>, then check the last tool request above. No tunnel is needed to use this dashboard.</li></ol></div>`;
+  <div class="panel setup-card history-panel"><h2>Connection checklist</h2><ol><li>Paste your current ESPN draft-room URL into <strong>Connect a draft</strong> above and click <strong>Connect league</strong>. The URL fills the league, season, and team IDs. New practice rooms can have different IDs; switching does not require a server restart.</li><li>Load extension version <code>1.1.0</code> from <code>apps/extension/dist</code>, reload the extension in Chrome, then refresh the ESPN draft page.</li><li>In the extension popup, save your <code>BROWSER_INGEST_SECRET</code> for the browser session. Keep the ESPN pick history visible. Late joins may expose only recent selections.</li><li>Check visible picks and accepted picks above. Earlier gaps remain marked as missing until those rows are captured.</li><li>To verify your ChatGPT connection, ask it to call <code>get_draft_state</code>, then check the last tool request above. No tunnel is needed to use this dashboard.</li></ol></div>`;
   $("#activity-log").innerHTML = activity.length ? activity.map((event)=>`<div class="log-row"><time datetime="${esc(event.at)}">${esc(new Date(event.at).toLocaleTimeString([], {hour12:false}))}</time><span class="log-kind ${event.kind==="WARN"?"warn":""}">${esc(event.kind)}</span><span>${esc(event.message)}</span></div>`).join("") : empty("No activity yet");
 }
 function render() {
   if (!data) return;
   const {state,summary,config} = data;
+  const key = selectionKey(config);
+  if (!selectionDirty && !selectionSubmitting && formSelectionKey !== key) {
+    $("#league-input").value = config.leagueId;
+    $("#league-season").value = config.season;
+    $("#league-team").value = config.myTeamId;
+    formSelectionKey = key;
+  }
+  $("#league-fields").disabled = !data.leagueSelection?.enabled || selectionSubmitting || data.leagueSelection.switching;
+  $("#league-demo-note").hidden = Boolean(data.leagueSelection?.enabled);
   $("#league-name").textContent = state?.league.name ?? "Draft HQ.";
   $("#league-meta").textContent = `${config.season} SEASON · LEAGUE ${config.leagueId}${state?` · ${state.league.teamCount} TEAMS · ${summary.league.scoring.replaceAll("_"," ")} · ${state.league.draft.type}`:""}`;
   $("#espn-link").href = `https://fantasy.espn.com/football/draft?leagueId=${encodeURIComponent(config.leagueId)}&seasonId=${config.season}&teamId=${config.myTeamId}`;
@@ -114,7 +147,7 @@ function render() {
   $("#draft-content").hidden = !state;
   $("#setup").hidden = Boolean(state) || page === "connections";
   $("#export").disabled = !state;
-  if (!state) $("#setup").innerHTML = `<div class="panel setup-card"><p class="eyebrow">LOCAL SERVER IS RUNNING</p><h2>Let’s connect your draft.</h2><p>${esc(data.initializationError ?? "Loading league settings, teams and players from ESPN…")}</p><p>Configured league: <code>${esc(config.leagueId)}</code>. If this was an old practice room, update your <code>.env</code> with the current room’s IDs and restart <code>pnpm start</code>. This page stays available while ESPN is offline.</p><a class="button" href="#connections">View connection details →</a></div>`;
+  if (!state) $("#setup").innerHTML = `<div class="panel setup-card"><p class="eyebrow">LOCAL SERVER IS RUNNING</p><h2>Let’s connect your draft.</h2><p>${esc(data.initializationError ?? "Loading league settings, teams and players from ESPN…")}</p><p>Configured league: <code>${esc(config.leagueId)}</code>. If this was an old practice room, paste the new draft-room URL into <strong>Connect a draft</strong> above. This page stays available while ESPN is offline.</p><a class="button" href="#connections">View connection details →</a></div>`;
   const notices = [];
   if (state) {
     if (!data.connections.espn && state.status !== "COMPLETE") notices.push(`ESPN is unavailable or its last poll is stale. ${esc(state.ingest.warning ?? "See connections for details.")}`);
@@ -138,6 +171,12 @@ async function refresh() {
     const response = await fetch("/api/dashboard", {cache:"no-store", signal:AbortSignal.timeout(5000)});
     if(!response.ok) throw new Error(`Server returned HTTP ${response.status}`);
     data = await response.json();
+    const nextLeagueKey = selectionKey(data.config);
+    if (currentLeagueKey && currentLeagueKey !== nextLeagueKey) {
+      activity.length = 0; knownPicks.clear(); lastWarning = ""; lastMcpCall = ""; playerPage = 0;
+      log("LEAGUE", `Connected to league ${data.config.leagueId} (${data.config.season})`);
+    }
+    currentLeagueKey = nextLeagueKey;
     if(previousConnection===false) log("SERVER","Local server reconnected");
     previousConnection = true;
     $("#offline-banner").hidden = true;
@@ -163,6 +202,40 @@ async function refresh() {
   } finally { refreshing=false; }
 }
 window.addEventListener("hashchange",navigate);
+$("#league-form").addEventListener("input", () => { selectionDirty = true; });
+$("#league-input").addEventListener("change", () => {
+  if ($("#league-input").value.trim().startsWith("https://")) {
+    try { readLeagueInput(); } catch (error) { setLeagueFeedback(error.message, "error"); }
+  }
+});
+$("#league-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (selectionSubmitting) return;
+  let selection;
+  try { selection = readLeagueInput(); } catch (error) { setLeagueFeedback(error.message, "error"); return; }
+  selectionSubmitting = true;
+  $("#league-fields").disabled = true;
+  $("#connect-league").textContent = "Connecting…";
+  setLeagueFeedback(`Checking league ${selection.leagueId} with ESPN…`, "pending");
+  try {
+    const response = await fetch("/api/league", {
+      method: "POST", headers: { "Content-Type": "application/json", "X-War-Room-Request": "1" },
+      body: JSON.stringify(selection)
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error ?? "Could not connect this league.");
+    selectionDirty = false;
+    formSelectionKey = "";
+    setLeagueFeedback(`Connected to league ${selection.leagueId}. Saved for next time — no restart needed.`, "success");
+  } catch (error) {
+    setLeagueFeedback(error.message, "error");
+  } finally {
+    selectionSubmitting = false;
+    $("#connect-league").textContent = "Connect league →";
+    await refresh();
+    render();
+  }
+});
 $("#refresh").addEventListener("click",refresh);
 $("#pick-search").addEventListener("input",()=>{if(data?.state) renderBoard();});
 for(const id of ["#player-search","#position-filter","#player-sort"]) $(id).addEventListener(id==="#player-search"?"input":"change",()=>{playerPage=0;if(data?.state)renderPlayers();});
