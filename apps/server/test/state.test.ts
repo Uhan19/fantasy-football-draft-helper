@@ -3,7 +3,7 @@ import { DraftStateStore } from "../src/draft/state.js";
 import { parseDraftDetail } from "../src/espn/draft-detail.js";
 import { normalizeEspnPick } from "../src/espn/normalizer.js";
 import { fixture, fixtureContext } from "./helpers.js";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { DraftPick } from "@war-room/shared";
@@ -13,6 +13,52 @@ const browserPick = (overall: number): DraftPick => ({ overall, round: Math.ceil
   player: { name: `Player ${overall}`, position: "RB" }, source: "browser", observedAt: "2026-09-03T20:00:00.000Z" });
 
 describe("normalized draft state", () => {
+  it("parses and restores a real negative D/ST ID as drafted", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "war-room-defense-"));
+    try {
+      const context = await fixtureContext(), snapshotPath = join(directory, "draft.json");
+      const defense = { espnId: -16026, name: "Seahawks D/ST", position: "DST" as const };
+      context.players.push(defense);
+      const store = new DraftStateStore({ ...context, myTeamId: 1, snapshotPath });
+      const detail = parseDraftDetail({ draftDetail: { inProgress: true, picks: [
+        { playerId: -16026, teamId: 1, overallPickNumber: 1, roundId: 1, roundPickNumber: 1 }
+      ] } });
+      expect(detail.picks).toHaveLength(1);
+      store.applyEspnSnapshot(detail, detail.picks.map(pick => normalizeEspnPick(pick, new Map([[-16026, defense]]))));
+      expect(store.get().draftedPlayerIds).toEqual([-16026]);
+      expect(store.get().user.currentRoster).toEqual([defense]);
+      await store.flushSnapshot();
+      const restored = new DraftStateStore({ ...context, myTeamId: 1, snapshotPath });
+      await restored.restoreSnapshot();
+      expect(restored.get().draftedPlayerIds).toEqual([-16026]);
+    } finally { await rm(directory, { recursive: true, force: true }); }
+  });
+
+  it("recovers from 120 persisted placeholders without resurrecting pick 121", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "war-room-recovery-"));
+    try {
+      const snapshotPath = join(directory, "draft.json"), context = await fixtureContext();
+      await writeFile(snapshotPath, JSON.stringify({ league: context.league,
+        picks: Array.from({ length: 120 }, (_, index) => ({ ...browserPick(index + 1),
+          source: "espn-api", playerId: -1,
+          player: { name: "Unknown ESPN Player -1", position: "UNKNOWN" } })) }));
+      const store = new DraftStateStore({ ...context, myTeamId: 1, snapshotPath });
+      await store.restoreSnapshot();
+      expect(store.get().current).toMatchObject({ completedPicks: 0, nextOverallPick: 1 });
+      expect(store.get().status).toBe("PRE_DRAFT");
+      expect(store.get().user.currentRoster).toEqual([]);
+      const detail = parseDraftDetail(await fixture("espn-draft-detail.json"));
+      const byId = new Map(context.players.map(player => [player.espnId, player]));
+      store.applyEspnSnapshot(detail, detail.picks.map(pick => normalizeEspnPick(pick, byId)));
+      expect(store.get().current.nextOverallPick).toBe(4);
+      expect(store.get().draftedPlayerIds).toEqual([101, 102, 103]);
+      await store.flushSnapshot();
+      const restored = new DraftStateStore({ ...context, myTeamId: 1, snapshotPath });
+      await restored.restoreSnapshot();
+      expect(restored.get().draftedPlayerIds).toEqual([101, 102, 103]);
+    } finally { await rm(directory, { recursive: true, force: true }); }
+  });
+
   it("tracks late-join progress with explicit gaps and preserves browser progress on empty API polls", async () => {
     const store = new DraftStateStore({ ...await fixtureContext(), myTeamId: 1 });
     store.applyBrowserPicks([browserPick(7)]);

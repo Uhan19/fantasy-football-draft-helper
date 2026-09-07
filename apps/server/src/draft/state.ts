@@ -81,8 +81,9 @@ export class DraftStateStore {
       }).parse(JSON.parse(await readFile(snapshotPath, "utf8")));
       if (snapshot.league.leagueId !== this.#state.league.leagueId
         || snapshot.league.season !== this.#state.league.season) return;
-      const picks = snapshot.picks.filter((pick) => this.#state.teams.some((team) => team.teamId === pick.fantasyTeamId));
-      this.#state = rebuildDerivedState({ ...this.#state, picks: reconcilePicks([], picks).picks,
+      const picks = reconcilePicks([], snapshot.picks.filter((pick) =>
+        this.#state.teams.some((team) => team.teamId === pick.fantasyTeamId))).picks;
+      this.#state = rebuildDerivedState({ ...this.#state, picks,
         ingest: { ...this.#state.ingest,
           lastBrowserPickAt: picks.filter((pick) => pick.source === "browser").at(-1)?.observedAt },
         status: picks.length ? "IN_PROGRESS" : "PRE_DRAFT" });

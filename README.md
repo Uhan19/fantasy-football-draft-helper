@@ -4,6 +4,14 @@ A local-first, read-only bridge from an ESPN Fantasy Football draft to ChatGPT. 
 
 The project never drafts a player or changes ESPN state. ESPN session cookies stay in the local Node process and are never included in MCP, REST, extension, or log output.
 
+## New to this project? Start here on Mac
+
+Download and unzip the repository, then double-click **Start War Room.command**. The browser setup page walks you through installing required files, pasting your ESPN room link, saving credentials, and starting the dashboard. It also starts the optional assistant tunnel using saved credentials automatically.
+
+Read the short **[Start here guide](START-HERE.md)**. No Git or terminal commands are needed for the normal setup flow. Node.js LTS (22 or newer) is required by the setup launcher; it opens the download page if needed. The optional tunnel binary and OpenAI account setup still require the steps in the guide.
+
+Developers can run `pnpm setup` (or `node scripts/start-war-room.mjs`). Setup runs on loopback port **8786**, the draft dashboard on **8787**, and the optional tunnel client's admin UI on **8080**. Only one setup launcher should run at a time.
+
 ## What V1 includes
 
 - ESPN league settings, team metadata, draft detail, and player catalog adapters

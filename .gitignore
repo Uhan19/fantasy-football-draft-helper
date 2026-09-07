@@ -7,3 +7,8 @@ node_modules/
 dist/
 .DS_Store
 coverage/
+
+# Optional downloaded assistant connection binary
+tools/*
+!tools/README.md
+.env.setup-tmp

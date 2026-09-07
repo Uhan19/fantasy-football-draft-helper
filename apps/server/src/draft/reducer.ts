@@ -1,5 +1,6 @@
 import {
   unknownPlayer,
+  isEspnPlayerId,
   type DraftPick,
   type DraftState,
   type DraftTeamState,
@@ -72,7 +73,7 @@ export function rebuildDerivedState(state: DraftState): DraftState {
     ...state,
     status: isFinished ? "COMPLETE" : state.status,
     teams,
-    draftedPlayerIds: state.picks.filter((pick) => pick.playerId > 0).map((pick) => pick.playerId),
+    draftedPlayerIds: state.picks.filter((pick) => isEspnPlayerId(pick.playerId)).map((pick) => pick.playerId),
     user: {
       teamId: state.user.teamId,
       ...(draftSlot ? { draftSlot } : {}),

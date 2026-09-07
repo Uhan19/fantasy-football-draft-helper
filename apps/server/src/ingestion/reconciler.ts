@@ -1,4 +1,4 @@
-import type { DraftPick } from "@war-room/shared";
+import { isEspnPlayerId, type DraftPick } from "@war-room/shared";
 
 export interface ReconcileConflict {
   overall: number;
@@ -14,9 +14,15 @@ export interface ReconcileResult {
   changed: boolean;
 }
 
+// ESPN schedules unfilled slots with placeholder IDs. Browser observations
+// may legitimately use provisional negative IDs, so retain those selections.
+function isSelection(pick: DraftPick): boolean {
+  return pick.source !== "espn-api" || isEspnPlayerId(pick.playerId);
+}
+
 function sameSelection(left: DraftPick, right: DraftPick): boolean {
   if (left.fantasyTeamId !== right.fantasyTeamId) return false;
-  if (left.playerId > 0 && right.playerId > 0) return left.playerId === right.playerId;
+  if (isEspnPlayerId(left.playerId) && isEspnPlayerId(right.playerId)) return left.playerId === right.playerId;
   return left.player.name.localeCompare(right.player.name, undefined, { sensitivity: "base" }) === 0;
 }
 
@@ -24,17 +30,18 @@ export function reconcilePicks(
   current: readonly DraftPick[],
   incoming: readonly DraftPick[]
 ): ReconcileResult {
-  const byOverall = new Map(current.map((pick) => [pick.overall, pick]));
+  const validCurrent = current.filter(isSelection);
+  const byOverall = new Map(validCurrent.map((pick) => [pick.overall, pick]));
   const added: DraftPick[] = [];
   const upgraded: DraftPick[] = [];
   const conflicts: ReconcileConflict[] = [];
 
-  for (const candidate of [...incoming].sort((a, b) => a.overall - b.overall)) {
+  for (const candidate of incoming.filter(isSelection).sort((a, b) => a.overall - b.overall)) {
     const existing = byOverall.get(candidate.overall);
     if (!existing) {
       const secondaryDuplicate = [...byOverall.values()].some(
         (pick) =>
-          candidate.playerId > 0 &&
+          isEspnPlayerId(candidate.playerId) &&
           pick.playerId === candidate.playerId &&
           pick.fantasyTeamId === candidate.fantasyTeamId
       );
@@ -67,6 +74,6 @@ export function reconcilePicks(
     added,
     upgraded,
     conflicts,
-    changed: added.length > 0 || upgraded.length > 0
+    changed: validCurrent.length !== current.length || added.length > 0 || upgraded.length > 0
   };
 }

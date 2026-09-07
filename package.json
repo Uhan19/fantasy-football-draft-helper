@@ -13,10 +13,12 @@
     "dev": "pnpm --filter @war-room/server dev",
     "start": "pnpm --filter @war-room/server start",
     "mcp": "pnpm --filter @war-room/server start",
-    "test": "pnpm --filter @war-room/server test",
+    "test": "pnpm --filter @war-room/server test && node --test scripts/setup/setup.test.mjs",
     "typecheck": "pnpm -r typecheck && tsc -p tsconfig.scripts.json --noEmit",
     "probe:espn": "tsx scripts/probe-espn.ts",
-    "simulate:draft": "tsx scripts/simulate-draft.ts"
+    "simulate:draft": "tsx scripts/simulate-draft.ts",
+    "setup": "node scripts/start-war-room.mjs",
+    "test:setup": "node --test scripts/setup/setup.test.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.15.0",

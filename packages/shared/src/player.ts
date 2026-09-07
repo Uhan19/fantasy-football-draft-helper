@@ -17,6 +17,12 @@ export const PlayerSchema = z.object({
 
 export type Player = z.infer<typeof PlayerSchema>;
 
+export function isEspnPlayerId(id: number): boolean {
+  // ESPN uses -16000 minus the NFL team ID for D/ST players; -1 is
+  // an unfilled draft slot, not a player.
+  return Number.isInteger(id) && (id > 0 || (id <= -16001 && id >= -16034));
+}
+
 export function unknownPlayer(espnId: number, name?: string): Player {
   return {
     espnId,

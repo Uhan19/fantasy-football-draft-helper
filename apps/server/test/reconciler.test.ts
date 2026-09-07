@@ -16,6 +16,20 @@ function pick(overall: number, source: DraftPick["source"], playerId = overall):
 }
 
 describe("pick reconciliation", () => {
+  it("removes persisted ESPN placeholders and accepts the actual selections", () => {
+    const result = reconcilePicks([pick(1, "espn-api", -1), pick(2, "espn-api", 0)], [pick(1, "espn-api", 101)]);
+    expect(result.picks.map((item) => item.playerId)).toEqual([101]);
+    expect(result.conflicts).toEqual([]);
+    expect(result.changed).toBe(true);
+  });
+
+  it("reports removal-only repairs and rejects new API placeholders", () => {
+    expect(reconcilePicks([pick(1, "espn-api", -1)], [])).toMatchObject({ picks: [], changed: true });
+    expect(reconcilePicks([], [pick(1, "espn-api", -1), pick(2, "espn-api", 0)]))
+      .toMatchObject({ picks: [], changed: false });
+    expect(reconcilePicks([], [pick(1, "browser", -1)]).picks).toHaveLength(1);
+  });
+
   it("deduplicates API events and sorts out-of-order events", () => {
     const result = reconcilePicks([pick(1, "espn-api")], [pick(3, "espn-api"), pick(2, "espn-api"), pick(1, "espn-api")]);
     expect(result.picks.map((item) => item.overall)).toEqual([1, 2, 3]);

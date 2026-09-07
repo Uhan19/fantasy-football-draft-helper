@@ -1,11 +1,11 @@
 import { z } from "zod";
+import { isEspnPlayerId } from "@war-room/shared";
 import type { ParsedDraftDetail, ParsedDraftPick } from "./types.js";
 
 const PickSchema = z
   .object({
-    // ESPN pre-populates future draft slots with playerId: -1. Only positive
-    // player IDs represent completed selections.
-    playerId: z.number().int().positive(),
+    // Exclude scheduled placeholders while retaining negative D/ST IDs.
+    playerId: z.number().int().refine(isEspnPlayerId),
     teamId: z.number().int().positive(),
     overallPickNumber: z.number().int().positive(),
     roundId: z.number().int().positive(),
